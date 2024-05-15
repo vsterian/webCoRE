@@ -49,6 +49,20 @@ app.directive('ngWheel', ['$parse', function($parse) {
 		};
 	}]);
 
+app.directive('ngScroll', ['$parse', function($parse) {
+	return function(scope, element, attr) {
+		var fn = $parse(attr.ngScroll);
+		console.log('bound', element, fn);
+		element.bind('scroll', function(event) {
+			scope.$apply(function() {
+				fn(scope, {
+					$event: event
+				});
+			});
+		});
+	};
+}]);
+
 
 app.directive('refresh',['$interval', function($interval){
 		return {
@@ -1471,14 +1485,20 @@ config.factory('dataService', ['$http', '$location', '$rootScope', '$window', '$
 			});
     }
 
-    dataService.evaluateExpression = function (pid, expression, dataType) {
+    dataService.evaluateExpression = function (pid, expression, dataType, variables) {
 		var inst = dataService.getPistonInstance(pid);
 		if (!inst) { inst = dataService.getInstance() };
 		si = store ? store[inst.id] : null;
 		var data = utoa(angular.toJson(expression));
-    	return $http.jsonp((si ? si.uri : 'about:blank/') + 'intf/dashboard/piston/evaluate?' + getAccessToken(si) + 'id=' + pid + '&expression=' + encodeURIComponent(data) + '&dataType=' + (dataType ? encodeURIComponent(dataType) : '') + '&token=' + (si && si.token ? si.token : ''), {jsonpCallbackParam: 'callback'})
+		var v = variables && utoa(angular.toJson(variables));
+    	return $http.jsonp((si ? si.uri : 'about:blank/') + 'intf/dashboard/piston/evaluate?' + getAccessToken(si) + 'id=' + pid + '&expression=' + encodeURIComponent(data) + '&dataType=' + (dataType ? encodeURIComponent(dataType) : '') + '&token=' + (si && si.token ? si.token : '') + (v ? '&v=' + encodeURIComponent(v) : ''), {jsonpCallbackParam: 'callback'})
 			.then(function(response) {
 				return response.data;
+			}, function(error) {
+				if (variables) {
+					return dataService.evaluateExpression(pid, expression, dataType);
+				}
+				throw error;
 			});
     }
 
